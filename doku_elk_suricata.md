@@ -50,6 +50,11 @@ security arrangements.
         set-cpu-affinity: no
         detect-thread-ratio: 1.5
 
+
+There is a whole bunch more to setup in that config.
+But for the start, these settings should be enough.
+For further questions, tasks and config possibilities, just check google. It's easy to find.
+
 #### Start it!
 For pcap-mode:
 
@@ -254,11 +259,18 @@ E.g. something like this:
 
     output {
       elasticsearch {
-      host => localhost
+      hosts => localhost
       #protocol => http
       }
     }
 
+HINT: If you want to forward the data, logstash collected, to elasticsearch on another maschine,
+you have to change the host to
+
+      [...]
+      hosts => 'IP-Adress'
+      protocol => http
+      [...]
 
 # Start the whole package!
 You will need **three** separate terminal windows!
