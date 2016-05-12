@@ -1,4 +1,4 @@
-#Documentation to make ELK/Suricata/Asterisk/freepbx run on PI (ARM Architecture)
+#Documentation to make ELK/Suricata run on PI (ARM Architecture)
 
 The major goal is to setup a PI with an IDS (suricata, logstash) and graphical display (elasticsearch, kibana).
 Furthermore to make use of it, I set up an asterisk/freepbx telephony system on the PI.
@@ -131,6 +131,13 @@ Create a directory to there it should be installed (e.g. /usr/src/)
 
     mkdir /usr/src/elasticsearch
     cd /usr/src/elasticsearch
+
+Create a user for executing elasticsearch
+
+    adduser USER
+    su USER
+
+*Mind to never start elasticsearch with root!*
 
 Download and untar it
 
@@ -268,7 +275,7 @@ HINT: If you want to forward the data, logstash collected, to elasticsearch on a
 you have to change the host to
 
       [...]
-      hosts => 'IP-Adress'
+      hosts => 'IP-Address'
       protocol => http
       [...]
 
@@ -281,7 +288,7 @@ First window
 
 Second window
 
-    su NUTZER
+    su USER
     cd /usr/src/elasticsearch/elasticsearch-2.2.0/
     bin/elasticsearch
 
