@@ -3,11 +3,14 @@
 import subprocess
 from pexpect import pxssh
 import getpass
+import socket
 import paramiko, base64
-import sys
+import sys, os
+import time
 
 host1 = '10.20.30.251'
 host2 = '10.20.30.252'
+port = 9200
 #port = 22
 
 host_dec = input('Which host do you want to manage? ')
@@ -23,6 +26,16 @@ if host_dec == 1:
     client.connect(host1, username=user, password=password)
     stdin, stdout, stderr = client.exec_command('/usr/src/elasticsearch-2.2.1/bin/elasticsearch')
     client.close()
+
+    print('Look for open elasticsearch...')
+    s = socket(AF_INET, SOCK_STREAM)
+    response = s.connect_ex((host1, port))
+    while response != 0:
+        time.sleep(5)
+        response = s.connect_ex((host1, port))
+        print ('Waiting for elasticsearch...')
+    else response == 0:
+        print ('Elasticsearch has been started.')
 
     user = raw_input('root username: ')
     password = getpass.getpass('root password: ')
