@@ -1,10 +1,6 @@
-#Documentation to make ELK/Suricata run on PI (ARM Architecture)
+#Documentation to make EL(K)/Suricata run with a PI (ARM Architecture) as satellite
 
-The major goal is to setup a PI with an IDS (suricata, logstash) and graphical display (elasticsearch, kibana).
-Furthermore to make use of it, I set up an asterisk/freepbx telephony system on the PI.
-If everything works fine, this should be my target, when I'm lay hands on Kali Linux.
-The main task is it to hack the PI, see what the IDS is gonna do and find, maybe, some vulnerabilites and
-security arrangements.
+The main goal is to setup a PI (or many PI's) as (an) satellite(s) with an IDS (suricata, logstash) and a server (e.g. debian linux) as some kind of graphical display (elasticsearch). So you can monitor network activities on your home network.
 
 **Packages**
 
@@ -58,7 +54,7 @@ For further questions, tasks and config possibilities, just check google. It's e
 #### Start it!
 For pcap-mode:
 
-Run this only this time
+Run this command only this time
 
     ethtool -K eth0 gro off lro off
 
@@ -76,14 +72,13 @@ or
 
     less /var/log/suricata/eve.json
 
-
 # Elasticsearch
+### Let's get the server to work
 #### Install JDK8
-Download the JDK8-ARM 32 Bit Version (if you have a 64-bit architecure, so
-download the 64-bit version).
-You have to download it to your Computer and then copy it to your PI.
+Download the JDK8 32 Bit Version (if you have a 64-bit architecure, so
+download the 64-bit version) to your computer. Now copy it to your server (e.g. a debian linux server).
 
-    scp jdk-8-ea-b36e-linux-arm-hflt-29_nov_2012.gz root@IP:/jdk-8.gz
+    scp jdk-8-xxxxxxxxxxxxxxxxxxxxxx.gz root@IP:/jdk-8.gz
 
 Now there is a gz-file in your / directory.
 Follow these steps to install it correctly.
@@ -107,7 +102,10 @@ Let's see if it worked...
 
     java -version
 
-If everything went fine, there is an output with your java version.
+Maybe you have to reboot your system.
+If everything went fine, there is an output with your java
+version.
+
 Set the HOME_DIR for Java:
 
     nano /etc/environment
@@ -137,7 +135,7 @@ Create a user for executing elasticsearch
     adduser USER
     su USER
 
-*Mind to never start elasticsearch with root!*
+*!!Mind to never start elasticsearch as root!!*
 
 Download and untar it
 
@@ -186,11 +184,10 @@ To make it more graphic, do this:
     cd /usr/src/elasticsearch/elasticsearch-2.2.0/bin
     ./plugin install mobz/elasticsearch-head
 
-After that you have to change the elasticsearch.yaml config
+So you know have the graphics but elasticsearch is not so elastic yet.
+Look into the elasticsearch.yaml config and change like you want to.
 
     nano /config/elasticsearch.yaml
-
-
 
 after that you can open up a browser on your PC/Laptop and type:
 
@@ -199,6 +196,9 @@ after that you can open up a browser on your PC/Laptop and type:
 or
 
     http://IP-OF-YOUR-PI:9200/_plugin/head/
+
+You should a graphical frontend for the data suricata sends.
+But until now, suricata sends no data so elasticsearch. It doesn't know how. For this, we need another tool on the PI('s) Logstash.
 
 # Logstash
 #### Download Logstash
@@ -238,6 +238,7 @@ Little bit later there's an output
     TIMESTAMP $HOST_NAME Test
 
 #### Make a config for filtering
+##### You have to say logstash what it should forward to elasticsearch
 
     cd /usr/src/logstash-2.2.2
     nano logstash.conf
@@ -262,7 +263,7 @@ E.g. something like this:
         code => "if event['event_type'] == 'fileinfo'; event['fileinfo']['type']=event['fileinfo']['magic'].to_s.split(',')[0]; end;"
       }
     }
-
+    // you can us Google for more filters ;).
 
     output {
       elasticsearch {
@@ -276,26 +277,22 @@ you have to change the host to
 
       [...]
       hosts => 'IP-Address'
-      protocol => http
+      protocol => http //https is always better!
       [...]
 
 # Start the whole package!
-You will need **three** separate terminal windows!
+On your PI
 
-First window
-
-    suricata -c /etc/suricata/suricata.yaml -i eth0
-
-Second window
-
-    su USER
-    cd /usr/src/elasticsearch/elasticsearch-2.2.0/
-    bin/elasticsearch
-
-Third window
+    suricata -c /etc/suricata/suricata.yaml -i eth0 //there is an option to run it as a daemon --> stoppable via proc-kill
 
     cd /usr/src/logstash-2.2.2
     bin/logstash -f logstash.conf
+
+On your server
+
+    su USER
+    cd /usr/src/elasticsearch/elasticsearch-2.2.0/
+    bin/elasticsearch -d //run as daemon
 
 Now visit in your favorite browser
 
@@ -306,72 +303,10 @@ You should see that there are indicies from logstash!
 Under "browse" you can see everything whats detected by suricata and read by logstash from eve.json.
 You're able to filter on the left side.
 
-# Kibana
-#### Download it and make it work
+#### HINT
+It is possible to forward other well-formed data like JSON to elasticsearch. Just tell it logstash like in this example.
+(There are more JSON-files from suricata, e.g. dns.log, fast.log,...)
 
-Make sure you have the /var/www/ directory on your PI.
-If not, install apache2
+Without any filter, you see every message/packet suricata collected -- be careful with your resources ;).
 
-    apt-get install apache2
-
-Now download Kibana for 32-Bit architecure
-
-    cd /var/www/
-    wget https://download.elastic.co/kibana/kibana/kibana-4.4.1-linux-x86.tar.gz
-    tar -xzvf kibana-4.4.1-linux-x86.tar.gz
-
-If you don't have node.js and npm on your PI, you have to install them both too.
-
-    wget http://node-arm.herokuapp.com/node_latest_armhf.deb
-    dpkg -i node_latest_armhf.deb
-    apt-get install npm
-
-Now you have to create some symlinks for the current node version
-
-    mv /var/www/kibana-4.1.1-linux-x86/node/bin/node
-    /var/www/kibana-4.1.1-linux-x86/node/bin/node.orig
-
-    mv /var/www/kibana-4.1.1-linux-x86/node/bin/npm
-    /var/www/kibana-4.1.1-linux-x86/node/bin/npm.orig
-
-    ln -s /usr/local/bin/node /var/www/kibana-4.1.1-linux-x86/node/bin/node
-
-    ln -s /usr/local/bin/npm /var/www/kibana-4.1.1-linux-x86/node/bin/npm
-
-Configure Kibana
-
-In your kibana directory under /config is a file named kibana.yml
-Open it and edit the following lines:
-
-    server.port: 5601
-    server.host: "IP-OF-YOUR-PI"
-    elasticsearch.url: "http://IP-OF-YOUR-PI:9200"
-    kibana.index: ".kibana"
-
-Start it!
-
-Important:
-You have to start elasticsearch **first** (remember not as root)!
-
-First terminal
-
-    su NUTZER
-    cd /usr/src/elasticsearch/elasticsearch-2.2.0
-    bin/elasticsearch
-
-Second terminal
-
-    cd /var/www/kibana-4.1.1-linux-x86/
-    bin/kibana
-
-
-You should see that node is starting and initializing kibana.
-In both terminal windows you should see that both applications connecting to each other.
-
-Open a browser of your choice
-
-    http://IP-OF-YOUR-PI:5601
-
-See the magic.
-Don't worry, if you don't started logstash and suricata, there's nothing to show in kibana.
-It's just a simple test to see if it runs correctly.
+Have fun!
